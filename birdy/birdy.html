@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flappy Bird Clone</title>
+  <style>
+    canvas { background: skyblue; display: block; margin: 20px auto; border: 2px solid #333; }
+    body { text-align: center; font-family: sans-serif; background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h2>Flappy Bird Clone</h2>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let birdY = 300;
+    let velocity = 0;
+    const gravity = 0.25;  // even gentler gravity
+    const jumpPower = -5;  // softer jump
+    const maxFallSpeed = 6;  // slower max fall speed
+    let pipes = [];
+    let score = 0;
+    let gameOver = false;
+    let frameCount = 0;
+    
+    // Bird image
+    const birdImg = new Image();
+    birdImg.src = "https://akm-img-a-in.tosshub.com/indiatoday/images/story/202405/pm-modi-smiling-064650298-1x1.jpeg?VersionId=9w2sDdTPC74oi3qxdo8II4Sco1dvH1NT"; // bird icon
+    let imageLoaded = false;
+    birdImg.onload = () => { imageLoaded = true; };
+    
+    // Audio setup
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let backgroundMusic = null;
+    let isMusicPlaying = false;
+    
+    // Background music - Replace this URL with your own music file
+    backgroundMusic = new Audio('saiyaara.mp3');
+    backgroundMusic.loop = true;
+    backgroundMusic.volume = 0.3; // 30% volume
+    
+    // Game over sound - Replace this URL with your own sound effect
+    const gameOverAudio = new Audio('notification.mp3');
+    gameOverAudio.volume = 0.5; // 50% volume
+    
+    // Play background music
+    function playBackgroundMusic() {
+      if (isMusicPlaying) return;
+      isMusicPlaying = true;
+      
+      backgroundMusic.play().catch(err => {
+        console.log("Audio autoplay prevented:", err);
+      });
+    }
+    
+    // Stop background music
+    function stopBackgroundMusic() {
+      if (backgroundMusic) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+      }
+    }
+
+    
+    function playGameOverSound() {
+      gameOverAudio.currentTime = 0;
+      gameOverAudio.play().catch(err => {
+        console.log("Game over sound error:", err);
+      });
+    }
+    
+    document.addEventListener("keydown", e => {
+      if (e.code === "Space") handleJump();
+    });
+    document.addEventListener("click", handleJump);
+    
+    function handleJump() {
+      if (gameOver) {
+        location.reload();
+        return;
+      }
+      
+    
+      if (!isMusicPlaying) {
+        playBackgroundMusic();
+      }
+      
+      velocity = jumpPower;
+      playJumpSound();
+    }
+    
+    function newPipe() {
+      let gap = 160; 
+      let minTop = 100;
+      let maxTop = 360;
+      let top = Math.random() * (maxTop - minTop) + minTop;
+      pipes.push({ x: 400, top, gap });
+    }
+    
+    function draw() {
+      ctx.clearRect(0, 0, 400, 600);
+      
+      // Bird
+      if (imageLoaded) {
+
+        ctx.drawImage(birdImg, 80 - 15, birdY - 15, 30, 30);
+      } else {
+    
+        ctx.fillStyle = "yellow";
+        ctx.strokeStyle = "orange";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(80, birdY, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      
+     
+      ctx.fillStyle = "#2ecc71";
+      ctx.strokeStyle = "#27ae60";
+      ctx.lineWidth = 3;
+      pipes.forEach(pipe => {
+        // Top pipe
+        ctx.fillRect(pipe.x, 0, 50, pipe.top);
+        ctx.strokeRect(pipe.x, 0, 50, pipe.top);
+        // Bottom pipe
+        ctx.fillRect(pipe.x, pipe.top + pipe.gap, 50, 600);
+        ctx.strokeRect(pipe.x, pipe.top + pipe.gap, 50, 600);
+        
+        pipe.x -= 1.5;  
+        
+       
+        if (pipe.x + 50 === 80 || (pipe.x + 50 < 80 && pipe.x + 51 > 80)) {
+          score++;
+        }
+
+        if (80 + 12 > pipe.x && 80 - 12 < pipe.x + 50) {
+          if (birdY - 12 < pipe.top || birdY + 12 > pipe.top + pipe.gap) {
+            if (!gameOver) {
+              gameOver = true;
+              stopBackgroundMusic();
+              playGameOverSound();
+            }
+          }
+        }
+      });
+      
+ 
+      if (birdY + 12 > 600 || birdY - 12 < 0) {
+        if (!gameOver) {
+          gameOver = true;
+          stopBackgroundMusic();
+          playGameOverSound();
+        }
+      }
+      
+      
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 3;
+      ctx.font = "bold 24px Arial";
+      ctx.strokeText("Score: " + score, 10, 30);
+      ctx.fillText("Score: " + score, 10, 30);
+      
+      if (gameOver) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, 400, 600);
+        
+        ctx.fillStyle = "white";
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 4;
+        ctx.font = "bold 48px Arial";
+        ctx.strokeText("Game Over", 70, 280);
+        ctx.fillText("Game Over", 70, 280);
+        
+        ctx.font = "bold 20px Arial";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 3;
+        ctx.strokeText("Final Score: " + score, 130, 330);
+        ctx.fillText("Final Score: " + score, 130, 330);
+        
+        ctx.strokeText("Click to Restart", 120, 370);
+        ctx.fillText("Click to Restart", 120, 370);
+        return;
+      }
+      
+      // Bird physics with terminal velocity
+      velocity += gravity;
+      if (velocity > maxFallSpeed) velocity = maxFallSpeed;
+      birdY += velocity;
+      
+      // Remove off-screen pipes & add new ones
+      if (pipes.length && pipes[0].x < -50) pipes.shift();
+      
+      frameCount++;
+      if (frameCount % 140 === 0) {  // more space between pipes
+        newPipe();
+      }
+      
+      requestAnimationFrame(draw);
+    }
+    
+    // Start with first pipe
+    newPipe();
+    draw();
+  </script>
+</body>
+</html>
